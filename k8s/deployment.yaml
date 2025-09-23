@@ -3,46 +3,68 @@ kind: Deployment
 metadata:
   name: laravel-app
   labels:
-    app: laravel
+    app: laravel-app
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
-      app: laravel
+      app: laravel-app
   template:
     metadata:
       labels:
-        app: laravel
+        app: laravel-app
     spec:
       containers:
-        - name: laravel
-          image: laravel:latest
-          ports:
-            - containerPort: 80
-          env:
-            - name: DB_HOST
-              value: mysql
-            - name: DB_PORT
-              value: "3306"
-            - name: DB_DATABASE
-              value: laravel
-            - name: DB_USERNAME
-              value: root
-            - name: DB_PASSWORD
-              value: password
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: laravel-service
-spec:
-  selector:
-    app: laravel
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
-  type: ClusterIP
+      - name: laravel-app
+        image: ghcr.io/your-username/your-repo:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: APP_ENV
+          value: "production"
+        - name: APP_DEBUG
+          value: "false"
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: host
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: database
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: password
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -61,29 +83,32 @@ spec:
         app: mysql
     spec:
       containers:
-        - name: mysql
-          image: mysql:5.7
-          ports:
-            - containerPort: 3306
-          env:
-            - name: MYSQL_ROOT_PASSWORD
-              value: password
-            - name: MYSQL_DATABASE
-              value: laravel
-            - name: MYSQL_USER
-              value: root
-            - name: MYSQL_PASSWORD
-              value: password
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: mysql-service
-spec:
-  selector:
-    app: mysql
-  ports:
-    - protocol: TCP
-      port: 3306
-      targetPort: 3306
-  type: ClusterIP
+      - name: mysql
+        image: mysql:8.0
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: root-password
+        - name: MYSQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: database
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: mysql-storage
+          mountPath: /var/lib/mysql
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: mysql-storage
+        persistentVolumeClaim:
+          claimName: mysql-pvc
