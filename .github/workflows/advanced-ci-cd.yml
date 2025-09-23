@@ -1,0 +1,50 @@
+name: Laravel to Kubernetes
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: 8.2
+        extensions: mbstring, bcmath, pdo, tokenizer, xml, ctype, json, openssl
+        ini-values: post_max_size=256M, upload_max_filesize=256M
+
+    - name: Install Composer dependencies
+      run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+    - name: Install NPM dependencies
+      run: npm ci
+
+    - name: Build assets
+      run: npm run prod
+
+    - name: Prepare application
+      run: |
+        cp .env.example .env
+        php artisan key:generate
+        php artisan config:cache
+        php artisan route:cache
+
+    - name: Build Docker image
+      run: |
+        docker build -t ghcr.io/${{ github.repository }}:latest .
+        echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        docker push ghcr.io/${{ github.repository }}:latest
+
+    - name: Deploy to Kubernetes
+      env:
+        KUBECONFIG: ${{ secrets.KUBECONFIG }}
+      run: |
+        kubectl set image deployment/laravel-app laravel-app=ghcr.io/${{ github.repository }}:latest
+        kubectl rollout status deployment/laravel-app
