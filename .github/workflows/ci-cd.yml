@@ -20,7 +20,7 @@ jobs:
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
       with:
-        php-version: '8.2'
+        php-version: '8.3.16'
         extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite, bcmath, gd, curl, zip
         coverage: none
 
@@ -35,11 +35,7 @@ jobs:
       continue-on-error: true
 
     - name: Install dependencies (with error handling)
-      run: |
-        # Try with different Composer options
-        composer install --no-progress --prefer-dist --no-interaction --optimize-autoloader || 
-        composer install --no-progress --prefer-dist --no-interaction ||
-        composer update --no-progress --prefer-dist --no-interaction
+      run: composer install --no-progress --prefer-dist --no-interaction --optimize-autoloader
 
     - name: Generate APP_KEY
       run: php artisan key:generate
