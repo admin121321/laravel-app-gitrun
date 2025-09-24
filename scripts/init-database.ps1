@@ -5,41 +5,32 @@ param(
 
 Write-Host "Initializing database..." -ForegroundColor Cyan
 
-# Wait for MySQL to be fully ready
-Write-Host "Waiting for MySQL to be ready..." -ForegroundColor Yellow
-kubectl wait --for=condition=ready pod -l app=mysql -n $Namespace --timeout=300s
-
-# Additional wait for MySQL service to be fully operational
-Start-Sleep -Seconds 20
-
-# Create MySQL configuration file to avoid password warning
-$tempConfig = "C:\temp\my.cnf"
-$configContent = @"
-[client]
-user=root
-password=$MysqlPassword
-host=mysql-service.$Namespace.svc.cluster.local
-"@
-
-# Ensure directory exists
-New-Item -ItemType Directory -Force -Path (Split-Path $tempConfig)
-$configContent | Out-File -FilePath $tempConfig -Encoding ASCII
+function Write-Log {
+    param([string]$Message, [string]$Color = "White")
+    Write-Host "$(Get-Date -Format 'HH:mm:ss') - $Message" -ForegroundColor $Color
+}
 
 try {
+    # Wait for MySQL to be ready
+    Write-Log "Waiting for MySQL pod to be ready..." "Yellow"
+    kubectl wait --for=condition=ready pod -l app=mysql -n $Namespace --timeout=300s
+    Start-Sleep -Seconds 10
+
+    # Get MySQL pod name
+    $mysqlPod = kubectl get pod -n $Namespace -l app=mysql -o jsonpath='{.items[0].metadata.name}'
+    Write-Log "MySQL pod: $mysqlPod" "White"
+
     # Test MySQL connection
-    Write-Host "Testing MySQL connection..." -ForegroundColor Yellow
-    kubectl exec deployment/mysql -n $Namespace -- mysql --defaults-file=/tmp/my.cnf -e "SELECT 1;" 2>&1 | Out-Null
-    
+    Write-Log "Testing MySQL connection..." "Yellow"
+    $testResult = kubectl exec $mysqlPod -n $Namespace -- mysql -u root -p$MysqlPassword -e "SELECT 1;" 2>&1
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "✅ MySQL connection successful!" -ForegroundColor Green
+        Write-Log "✅ MySQL connection successful!" "Green"
     } else {
-        Write-Host "❌ MySQL connection failed" -ForegroundColor Red
+        Write-Log "❌ MySQL connection failed: $testResult" "Red"
         exit 1
     }
 
-    # Create database and user using configuration file
-    Write-Host "Creating database and user..." -ForegroundColor Yellow
-    
+    # SQL commands untuk initialize database
     $sqlCommands = @"
 CREATE DATABASE IF NOT EXISTS laravel_db;
 CREATE USER IF NOT EXISTS 'laravel_user'@'%' IDENTIFIED BY 'laravel_password';
@@ -49,23 +40,26 @@ SHOW DATABASES;
 SELECT user, host FROM mysql.user WHERE user = 'laravel_user';
 "@
 
-    # Save SQL commands to a file and execute
-    $tempSqlFile = "C:\temp\init.sql"
-    $sqlCommands | Out-File -FilePath $tempSqlFile -Encoding ASCII
+    # Method 1: Gunakan echo dan pipe ke mysql
+    Write-Log "Creating database and user..." "Yellow"
+    
+    # Escape quotes untuk PowerShell
+    $escapedSql = $sqlCommands -replace '"', '\"'
+    
+    # Execute SQL commands menggunakan echo
+    $command = "echo `"$escapedSql`" | mysql -u root -p$MysqlPassword"
+    $result = kubectl exec $mysqlPod -n $Namespace -- bash -c $command
+    
+    Write-Log "SQL execution result: $result" "White"
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Log "✅ Database initialization completed successfully!" "Green"
+    } else {
+        Write-Log "❌ Database initialization failed" "Red"
+        exit 1
+    }
 
-    # Copy files to pod and execute
-    kubectl cp $tempConfig ${Namespace}/$(kubectl get pod -n $Namespace -l app=mysql -o jsonpath='{.items[0].metadata.name}'):/tmp/my.cnf
-    kubectl cp $tempSqlFile ${Namespace}/$(kubectl get pod -n $Namespace -l app=mysql -o jsonpath='{.items[0].metadata.name}'):/tmp/init.sql
-    
-    kubectl exec deployment/mysql -n $Namespace -- mysql --defaults-file=/tmp/my.cnf < /tmp/init.sql
-    
-    Write-Host "✅ Database initialization completed successfully!" -ForegroundColor Green
-    
 } catch {
-    Write-Host "❌ Database initialization failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Log "❌ Error: $($_.Exception.Message)" "Red"
     exit 1
-} finally {
-    # Cleanup temporary files
-    Remove-Item $tempConfig -ErrorAction SilentlyContinue
-    Remove-Item $tempSqlFile -ErrorAction SilentlyContinue
 }
