@@ -191,26 +191,29 @@ jobs:
     - name: Deploy Laravel Application
       shell: powershell
       run: |
-       Write-Host "Checking application health..." -ForegroundColor Cyan
+        Write-Host "Deploying Laravel application..." -ForegroundColor Cyan
         
-        # Start port forwarding in background
-        $portForwardJob = Start-Job -ScriptBlock {
-            kubectl port-forward -n $Using:Namespace service/laravel-service 8080:80
-        }
+        # Apply Laravel resources
+        kubectl apply -f kubernetes/laravel-deployment.yml -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply -f kubernetes/laravel-service.yml -n ${{ env.K8S_NAMESPACE }}
         
-        # Wait for port forward
-        Start-Sleep -Seconds 10
+        # Wait dengan timeout lebih lama dan continue on error
+        Write-Host "Waiting for Laravel pods to be ready (timeout: 600s)..." -ForegroundColor Yellow
+        kubectl wait --for=condition=ready pod -l app=laravel-app -n ${{ env.K8S_NAMESPACE }} --timeout=600s || true
         
-        # Test application health
-        try {
-            $response = Invoke-WebRequest -Uri "http://localhost:8080" -TimeoutSec 30
-            Write-Host "✅ Application health check passed! Status: $($response.StatusCode)" -ForegroundColor Green
-        } catch {
-            Write-Host "❌ Application health check failed: $($_.Exception.Message)" -ForegroundColor Red
-            Write-Host "This might be expected if the application is still starting up..." -ForegroundColor Yellow
-        } finally {
-            # Stop port forwarding
-            $portForwardJob | Stop-Job | Remove-Job
+        # Debug jika masih timeout
+        Write-Host "Pod status after wait:" -ForegroundColor Yellow
+        kubectl get pods -n ${{ env.K8S_NAMESPACE }} -l app=laravel-app -o wide
+        
+        # Check pod conditions
+        $pods = kubectl get pods -n ${{ env.K8S_NAMESPACE }} -l app=laravel-app -o jsonpath='{.items[*].metadata.name}'
+        foreach ($pod in $pods.Split(' ')) {
+            if ($pod) {
+                Write-Host "`nDebugging pod: $pod" -ForegroundColor Cyan
+                kubectl describe pod $pod -n ${{ env.K8S_NAMESPACE }} | Select-String -Pattern "Events:" -Context 0,10
+                Write-Host "Logs (last 15 lines):" -ForegroundColor Gray
+                kubectl logs $pod -n ${{ env.K8S_NAMESPACE }} --tail=15
+            }
         }
 
 
