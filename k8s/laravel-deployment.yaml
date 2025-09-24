@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: laravel-app
   namespace: laravel-app
+  labels:
+    app: laravel-app
 spec:
   replicas: 2
   selector:
@@ -24,28 +26,41 @@ spec:
           value: "local"
         - name: APP_DEBUG
           value: "true"
+        - name: APP_URL
+          value: "http://localhost:8080"
+        - name: DB_CONNECTION
+          value: "mysql"
         - name: DB_HOST
           value: "mysql-service"
         - name: DB_PORT
           value: "3306"
         - name: DB_DATABASE
-          value: "laravel_db"
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: mysql-database
         - name: DB_USERNAME
-          value: "laravel_user"
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: mysql-user
         - name: DB_PASSWORD
-          value: "laravel_password"
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: mysql-password
         resources:
           requests:
-            memory: "512Mi"
+            memory: "256Mi"
             cpu: "250m"
           limits:
-            memory: "1Gi"
+            memory: "512Mi"
             cpu: "500m"
         livenessProbe:
           httpGet:
             path: /
             port: 8000
-          initialDelaySeconds: 60  # Lebih lama untuk Windows
+          initialDelaySeconds: 60
           periodSeconds: 10
         readinessProbe:
           httpGet:
@@ -53,3 +68,9 @@ spec:
             port: 8000
           initialDelaySeconds: 30
           periodSeconds: 5
+        startupProbe:
+          httpGet:
+            path: /
+            port: 8000
+          failureThreshold: 30
+          periodSeconds: 10

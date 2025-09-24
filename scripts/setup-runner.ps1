@@ -1,31 +1,32 @@
-# setup-runner.ps1
-$ErrorActionPreference = "Stop"
-
+# Run sebagai Administrator
 Write-Host "Setting up GitHub Self-Hosted Runner on Windows..." -ForegroundColor Green
 
-# Create runner directory
-$RunnerDir = "C:\actions-runner"
-if (!(Test-Path $RunnerDir)) {
-    New-Item -ItemType Directory -Path $RunnerDir -Force
-}
-Set-Location $RunnerDir
+# Install Chocolatey (package manager)
+Set-ExecutionPolicy Bypass -Scope Process -Force
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
-# Download runner
-$RunnerUrl = "https://github.com/actions/runner/releases/download/v2.311.0/actions-runner-win-x64-2.311.0.zip"
-$ZipPath = "$RunnerDir\actions-runner.zip"
+# Install dependencies
+choco install docker-desktop -y
+choco install kubernetes-cli -y
+choco install kubelogin -y
 
-Write-Host "Downloading GitHub Runner..." -ForegroundColor Yellow
-Invoke-WebRequest -Uri $RunnerUrl -OutFile $ZipPath
+# Start Docker Desktop
+Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
 
-# Extract runner
-Write-Host "Extracting runner..." -ForegroundColor Yellow
-Expand-Archive -Path $ZipPath -DestinationPath $RunnerDir -Force
-Remove-Item $ZipPath
+# Wait for Docker to start
+Write-Host "Waiting for Docker to start..." -ForegroundColor Yellow
+Start-Sleep -Seconds 30
 
-# Configure runner (ganti dengan token dari GitHub)
-Write-Host "Please configure the runner manually:" -ForegroundColor Cyan
-Write-Host "1. Go to your GitHub repository" -ForegroundColor White
-Write-Host "2. Settings -> Actions -> Runners -> New self-hosted runner" -ForegroundColor White
-Write-Host "3. Follow Windows instructions" -ForegroundColor White
+# Enable Kubernetes in Docker Desktop
+$configPath = "$env:USERPROFILE\AppData\Roaming\Docker\settings.json"
+$config = Get-Content $configPath | ConvertFrom-Json
+$config.kubernetes.enabled = $true
+$config | ConvertTo-Json -Depth 10 | Set-Content $configPath
 
-Write-Host "Setup completed! Run config.cmd to configure the runner." -ForegroundColor Green
+# Restart Docker Desktop
+Get-Process "Docker Desktop" -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep -Seconds 10
+Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+
+Write-Host "Setup completed! Please configure Kubernetes in Docker Desktop GUI." -ForegroundColor Green
