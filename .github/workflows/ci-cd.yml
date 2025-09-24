@@ -58,9 +58,19 @@ jobs:
     - name: Generate application key
       run: php artisan key:generate
 
-    - name: Create database for testing
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Wait for MySQL
       run: |
-        mysql -h 127.0.0.1 -u root -proot -e "CREATE DATABASE IF NOT EXISTS laravel_prod;"
+          for i in {1..30}; do
+            if docker exec $(docker ps -q -f name=mysql) mysql -uroot -proot123 -e "SELECT 1" &>/dev/null; then
+              echo "MySQL is ready!"
+              break
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
 
     - name: Execute tests via PHPUnit
       env:
