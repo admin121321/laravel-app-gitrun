@@ -138,8 +138,9 @@ jobs:
       shell: powershell
       run: |
         Write-Host "Setting up Kubernetes namespace..." -ForegroundColor Cyan
-        $namespace = "${{ env.K8S_NAMESPACE }}
-      
+         $namespace = "laravel-app"
+        
+        # Check if namespace exists
         kubectl get namespace $namespace 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
             Write-Host "Creating namespace: $namespace"
