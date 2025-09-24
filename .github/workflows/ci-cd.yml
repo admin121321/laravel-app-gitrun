@@ -143,10 +143,10 @@ jobs:
         # Check if namespace exists
         kubectl get namespace $namespace 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
+            Write-Host "Creating namespace: $namespace"
             kubectl create namespace $namespace
-            Write-Host "Namespace $namespace created" -ForegroundColor Green
         } else {
-            Write-Host "Namespace $namespace already exists" -ForegroundColor Yellow
+            Write-Host "Namespace $namespace already exists"
         }
 
     - name: Deploy MySQL Database
