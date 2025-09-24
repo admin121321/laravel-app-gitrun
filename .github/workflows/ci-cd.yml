@@ -80,7 +80,7 @@ jobs:
         DB_DATABASE: laravel_prod
         DB_USERNAME: root
         DB_PASSWORD: your-password
-      run: php artisan test
+      run: php artisan dev
 
     - name: Run PHPStan
       run: ./vendor/bin/phpstan analyse
