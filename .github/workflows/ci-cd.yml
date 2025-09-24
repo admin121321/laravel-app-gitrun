@@ -114,7 +114,7 @@ jobs:
         $PSVersionTable
 
     - name: Verify Environment
-      shell: pwsh
+      shell: powershell
       run: |
         Write-Host "=== Environment Verification ===" -ForegroundColor Green
         Write-Host "Docker Version:" -ForegroundColor Yellow
@@ -127,7 +127,7 @@ jobs:
         kubectl config current-context
 
     - name: Build Docker Image
-      shell: pwsh
+      shell: powershell
       run: |
         Write-Host "Building Docker image..." -ForegroundColor Cyan
         docker build -t ${{ env.APP_NAME }}:latest -t ${{ env.APP_NAME }}:${{ github.sha }} .
@@ -135,7 +135,7 @@ jobs:
         docker images | Select-String "${{ env.APP_NAME }}"
 
     - name: Setup Kubernetes Namespace
-      shell: pwsh
+      shell: powershell
       run: |
         Write-Host "Setting up Kubernetes namespace..." -ForegroundColor Cyan
         $namespace = "${{ env.K8S_NAMESPACE }}"
@@ -150,7 +150,7 @@ jobs:
         }
 
     - name: Deploy MySQL Database
-      shell: pwsh
+      shell: powershell
       run: |
         Write-Host "Deploying MySQL database..." -ForegroundColor Cyan
         
@@ -166,7 +166,7 @@ jobs:
         Write-Host "MySQL is ready!" -ForegroundColor Green
 
     - name: Initialize Database
-      shell: pwsh
+      shell: powershell
       run: |
         Write-Host "Initializing database..." -ForegroundColor Cyan
         
@@ -183,7 +183,7 @@ jobs:
         " 2>&1 | Write-Host
 
     - name: Deploy Laravel Application
-      shell: pwsh
+      shell: powershell
       run: |
         Write-Host "Deploying Laravel application..." -ForegroundColor Cyan
         
@@ -199,7 +199,7 @@ jobs:
         Write-Host "Laravel application is ready!" -ForegroundColor Green
 
     - name: Run Database Migrations
-      shell: pwsh
+      shell: powershell
       run: |
         Write-Host "Running database migrations..." -ForegroundColor Cyan
         $maxRetries = 3
@@ -222,14 +222,14 @@ jobs:
         }
 
     - name: Run Database Seeders
-      shell: pwsh
+      shell: powershell
       run: |
         Write-Host "Running database seeders..." -ForegroundColor Cyan
         kubectl exec deployment/${{ env.APP_NAME }} -n ${{ env.K8S_NAMESPACE }} -- php artisan db:seed --force
         Write-Host "Seeders completed successfully!" -ForegroundColor Green
 
     - name: Health Check
-      shell: pwsh
+      shell: powershell
       run: |
         Write-Host "Performing health check..." -ForegroundColor Cyan
         
@@ -256,7 +256,7 @@ jobs:
         }
 
     - name: Deployment Summary
-      shell: pwsh
+      shell: powershell
       run: |
         $summary = @"
         # 🚀 Deployment Successful!
