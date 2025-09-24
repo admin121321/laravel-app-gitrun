@@ -138,9 +138,8 @@ jobs:
       shell: powershell
       run: |
         Write-Host "Setting up Kubernetes namespace..." -ForegroundColor Cyan
-        $namespace = "${{ env.K8S_NAMESPACE }}"
-        
-        # Check if namespace exists
+        $namespace = ${{ env.K8S_NAMESPACE }}
+      
         kubectl get namespace $namespace 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
             Write-Host "Creating namespace: $namespace"
