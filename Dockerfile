@@ -39,6 +39,9 @@ RUN apk update && apk add --no-cache \
     libzip-dev \
     oniguruma-dev
 
+RUN ln -s /usr/bin/php83 /usr/bin/php
+RUN ln -s /usr/sbin/php-fpm83 /usr/sbin/php-fpm
+
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
@@ -48,6 +51,8 @@ WORKDIR /var/www/
 # Copy application
 COPY . .
 
+# Copy supervisord configuration
+COPY /docker/supervisord.conf /etc/supervisord.conf
 # Verifikasi file artisan ada
 RUN ls -la artisan || echo "artisan file not found!"
 
@@ -99,9 +104,9 @@ EXPOSE 9000
 RUN ["chmod", "+x", "post_deploy.sh"]
 
 # Use supervisor to manage processes
-#CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf","php-fpm","sh", "post_deploy.sh"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 
-CMD ["sh", "post_deploy.sh"]
+#CMD ["sh", "post_deploy.sh"]
 
 # Health check untuk container
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
