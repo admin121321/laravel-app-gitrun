@@ -158,9 +158,35 @@ jobs:
     - name: Initialize Database
       shell: powershell
       run: |
-        Write-Host "Initializing database..." -ForegroundColor Cyan
-
-        .\scripts\init-database.ps1 -Namespace "${{ env.K8S_NAMESPACE }}" -MysqlPassword "rootpassword"
+        Write-Host "🚀 Initializing database..." -ForegroundColor Cyan
+        
+        # Wait for MySQL
+        kubectl wait --for=condition=ready pod -l app=mysql -n ${{ env.K8S_NAMESPACE }} --timeout=300s
+        Start-Sleep -Seconds 20
+        
+        # Get pod name
+        $podName = kubectl get pods -n ${{ env.K8S_NAMESPACE }} -l app=mysql -o jsonpath='{.items[0].metadata.name}'
+        Write-Host "MySQL Pod: $podName" -ForegroundColor White
+        
+        # Execute SQL commands directly
+        $commands = @(
+            "CREATE DATABASE IF NOT EXISTS laravel_db;",
+            "CREATE USER IF NOT EXISTS 'laravel_user'@'%' IDENTIFIED BY 'laravel_password';", 
+            "GRANT ALL PRIVILEGES ON laravel_db.* TO 'laravel_user'@'%';",
+            "FLUSH PRIVILEGES;"
+        )
+        
+        foreach ($cmd in $commands) {
+            Write-Host "Executing: $cmd" -ForegroundColor Gray
+            kubectl exec $podName -n ${{ env.K8S_NAMESPACE }} -- mysql -u root -prootpassword -e "$cmd"
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✅ Success" -ForegroundColor Green
+            } else {
+                Write-Host "❌ Failed" -ForegroundColor Red
+            }
+        }
+        
+        Write-Host "🎉 Database initialization completed!" -ForegroundColor Green  
 
     - name: Deploy Laravel Application
       shell: powershell
