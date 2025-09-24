@@ -26,10 +26,10 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Copy application
 COPY . .
 
-RUN rm -rf vendor/*
-
 # Install dependencies (tanpa dev untuk production)
 RUN composer install --optimize-autoloader --no-dev
+
+FROM node:lts-trixie-slim
 
 # setup Node JS
 RUN npm install
@@ -47,6 +47,7 @@ RUN chown -R www-data:www-data /var/www/storage \
 # Copy configurations
 COPY docker/nginx.conf /etc/nginx/sites-available/default
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker/php.ini /usr/local/etc/php/local.ini
 
 # Health check script
 COPY docker/health-check.sh /usr/local/bin/health-check.sh
