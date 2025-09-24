@@ -13,7 +13,9 @@ RUN apt-get update && apt-get install -y \
     unzip \
     nginx \
     supervisor \
-    default-mysql-client
+    default-mysql-client \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
@@ -24,7 +26,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Copy application
 COPY . .
 
-# Install dependencies
+# Install dependencies (tanpa dev untuk production)
 RUN composer install --optimize-autoloader --no-dev
 
 # Setup permissions
@@ -37,12 +39,18 @@ RUN chown -R www-data:www-data /var/www/storage \
 COPY docker/nginx.conf /etc/nginx/sites-available/default
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
+# Health check script
+COPY docker/health-check.sh /usr/local/bin/health-check.sh
+RUN chmod +x /usr/local/bin/health-check.sh
+
 # Generate key (will be overridden by env)
-RUN php artisan key:generate
+RUN php artisan key:generate --no-ansi
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8000 || exit 1
-
+# Use supervisor to manage processes
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+
+# Health check untuk container
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD /usr/local/bin/health-check.sh

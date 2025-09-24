@@ -6,7 +6,7 @@ metadata:
   labels:
     app: laravel-app
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: laravel-app
@@ -26,8 +26,10 @@ spec:
           value: "local"
         - name: APP_DEBUG
           value: "true"
+        - name: APP_KEY
+          value: "base64:generatedkey123456789012345678901234567890"
         - name: APP_URL
-          value: "http://localhost:8080"
+          value: "http://localhost:8000"
         - name: DB_CONNECTION
           value: "mysql"
         - name: DB_HOST
@@ -35,20 +37,14 @@ spec:
         - name: DB_PORT
           value: "3306"
         - name: DB_DATABASE
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: mysql-database
+          value: "laravel_db"
         - name: DB_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: mysql-user
+          value: "laravel_user"
         - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: mysql-password
+          value: "laravel_password"
+        - name: LOG_CHANNEL
+          value: "stderr"
+        # Add resource limits
         resources:
           requests:
             memory: "256Mi"
@@ -56,21 +52,37 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
+        # Improved probes dengan initial delay yang lebih lama
         livenessProbe:
           httpGet:
             path: /
             port: 8000
-          initialDelaySeconds: 60
+            httpHeaders:
+            - name: Custom-Header
+              value: Awesome
+          initialDelaySeconds: 120  # Beri waktu lebih lama untuk startup
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /
             port: 8000
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60   # Kurangi delay untuk readiness
           periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
         startupProbe:
           httpGet:
             path: /
             port: 8000
-          failureThreshold: 30
+          failureThreshold: 30     # Beri waktu hingga 300 detik untuk startup
           periodSeconds: 10
+        # Lifecycle hooks
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "echo 'Container started' > /tmp/startup.log"]
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 30"]

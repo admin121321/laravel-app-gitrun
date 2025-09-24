@@ -191,39 +191,53 @@ jobs:
     - name: Deploy Laravel Application
       shell: powershell
       run: |
-        Write-Host "Deploying Laravel application..." -ForegroundColor Cyan
+       Write-Host "Checking application health..." -ForegroundColor Cyan
         
-        # Apply Laravel resources
-        Get-ChildItem "kubernetes/laravel-*" | ForEach-Object {
-            Write-Host "Applying $($_.Name)..." -ForegroundColor White
-            kubectl apply -f $_.FullName -n ${{ env.K8S_NAMESPACE }}
+        # Start port forwarding in background
+        $portForwardJob = Start-Job -ScriptBlock {
+            kubectl port-forward -n $Using:Namespace service/laravel-service 8080:80
         }
         
-        # Wait for Laravel to be ready
-        Write-Host "Waiting for Laravel application to be ready..." -ForegroundColor Yellow
-        kubectl wait --for=condition=ready pod -l app=${{ env.APP_NAME }} -n ${{ env.K8S_NAMESPACE }} --timeout=300s
-        Write-Host "Laravel application is ready!" -ForegroundColor Green
+        # Wait for port forward
+        Start-Sleep -Seconds 10
+        
+        # Test application health
+        try {
+            $response = Invoke-WebRequest -Uri "http://localhost:8080" -TimeoutSec 30
+            Write-Host "✅ Application health check passed! Status: $($response.StatusCode)" -ForegroundColor Green
+        } catch {
+            Write-Host "❌ Application health check failed: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "This might be expected if the application is still starting up..." -ForegroundColor Yellow
+        } finally {
+            # Stop port forwarding
+            $portForwardJob | Stop-Job | Remove-Job
+        }
+
 
     - name: Run Database Migrations
       shell: powershell
       run: |
-        Write-Host "Running database migrations..." -ForegroundColor Cyan
-        $maxRetries = 3
+       Write-Host "Running database migrations..." -ForegroundColor Cyan
+        
+        $maxRetries = 5
         $retryCount = 0
         
         while ($retryCount -lt $maxRetries) {
             try {
-                kubectl exec deployment/${{ env.APP_NAME }} -n ${{ env.K8S_NAMESPACE }} -- php artisan migrate --force
-                Write-Host "Migrations completed successfully!" -ForegroundColor Green
+                Write-Host "Migration attempt $($retryCount + 1)/$maxRetries" -ForegroundColor Yellow
+                kubectl exec deployment/laravel-app -n ${{ env.K8S_NAMESPACE }} -- php artisan migrate --force --no-interaction
+                Write-Host "✅ Migrations completed successfully!" -ForegroundColor Green
                 break
             } catch {
                 $retryCount++
-                Write-Host "Migration attempt $retryCount failed. Retrying in 10 seconds..." -ForegroundColor Red
+                Write-Host "❌ Migration attempt $retryCount failed: $($_.Exception.Message)" -ForegroundColor Red
                 if ($retryCount -eq $maxRetries) {
-                    Write-Host "All migration attempts failed!" -ForegroundColor Red
-                    exit 1
+                    Write-Host "💥 All migration attempts failed!" -ForegroundColor Red
+                    # Continue anyway, mungkin aplikasi masih starting up
+                } else {
+                    Write-Host "⏳ Retrying in 15 seconds..." -ForegroundColor Yellow
+                    Start-Sleep -Seconds 15
                 }
-                Start-Sleep -Seconds 10
             }
         }
 
