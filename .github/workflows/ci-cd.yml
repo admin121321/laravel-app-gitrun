@@ -65,6 +65,7 @@ jobs:
         DB_USERNAME: root
         DB_PASSWORD: root
       run: |
+        npm run dev
         php artisan migrate --force
         php artisan test
 
