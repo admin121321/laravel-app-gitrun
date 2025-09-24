@@ -32,7 +32,7 @@ services:
     container_name: mysql
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: laravel_test
+      MYSQL_DATABASE: laravel_prod
       MYSQL_ROOT_PASSWORD: your-password
     ports:
       - "3306:3306"
