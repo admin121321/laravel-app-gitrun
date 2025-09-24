@@ -108,6 +108,8 @@ jobs:
     - name: Run PowerShell
       shell: powershell
       run: |
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+        Get-ExecutionPolicy -List
         Write-Host "Ini PowerShell bawaan Windows"
         $PSVersionTable
 
