@@ -20,8 +20,10 @@ jobs:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: root
+          MYSQL_ROOT_PASSWORD: rootpassword
           MYSQL_DATABASE: laravel_test
+          MYSQL_USER: laravel_test_user
+          MYSQL_PASSWORD: testpassword
         ports:
           - 3306:3306
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
@@ -62,12 +64,25 @@ jobs:
     - name: Build assets
       run: npm run build
     
-    - name: Setup database
+    - name: Wait for MySQL to be ready
       run: |
-        mysql -h 127.0.0.1 -u root -ppassword -e "CREATE DATABASE IF NOT EXISTS laravel_test;"
-        mysql -h 127.0.0.1 -u root -ppassword -e "CREATE USER IF NOT EXISTS 'laravel_user'@'%' IDENTIFIED BY 'password';"
-        mysql -h 127.0.0.1 -u root -ppassword -e "GRANT ALL PRIVILEGES ON laravel_test.* TO 'laravel_user'@'%';"
-        mysql -h 127.0.0.1 -u root -ppassword -e "FLUSH PRIVILEGES;"
+        for i in {1..30}; do
+          if mysql -h 127.0.0.1 -u root -prootpassword -e "SELECT 1" &>/dev/null; then
+            echo "MySQL is ready!"
+            break
+          fi
+          echo "Waiting for MySQL... ($i/30)"
+          sleep 2
+        done
+
+    - name: Setup test database
+      run: |
+        mysql -h 127.0.0.1 -u root -prootpassword << EOF
+        CREATE DATABASE IF NOT EXISTS laravel_test;
+        CREATE USER IF NOT EXISTS 'laravel_test_user'@'%' IDENTIFIED BY 'testpassword';
+        GRANT ALL PRIVILEGES ON laravel_test.* TO 'laravel_test_user'@'%';
+        FLUSH PRIVILEGES;
+        EOF
 
     - name: Run tests
       env:
@@ -75,8 +90,8 @@ jobs:
         DB_HOST: 127.0.0.1
         DB_PORT: 3306
         DB_DATABASE: laravel_test
-        DB_USERNAME: laravel_user
-        DB_PASSWORD: laravel_password
+        DB_USERNAME: laravel_test_user
+        DB_PASSWORD: testpassword
       run: |
         php artisan migrate --force
         php artisan test
