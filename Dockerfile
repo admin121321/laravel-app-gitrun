@@ -1,85 +1,83 @@
+
 FROM php:8.3.26RC1-fpm-alpine3.21
 
 FROM node:22.11-alpine
+  
+# setup user as root
+USER root
 
-# Install system dependencies
+# Install PHP dengan SEMUA extensions yang diperlukan Laravel
 RUN apk update && apk add --no-cache \
+    php83 \
+    php83-fpm \
+    php83-phar \
+    php83-json \
+    php83-mbstring \
+    php83-tokenizer \
+    php83-xml \
+    php83-ctype \
+    php83-curl \
+    php83-openssl \
+    php83-fileinfo \
+    php83-dom \
+    php83-iconv \
+    php83-zip \
+    php83-gd \
+    php83-bcmath \
+    php83-pdo \
+    php83-pdo_mysql \
+    php83-session \
+    php83-simplexml \
     nginx \
     nodejs \
-    npm \
     git \
+    npm \
+    composer \
     curl \
-    zip \
-    unzip
-
-# Install PHP extensions untuk Laravel
-RUN docker-php-ext-install \
-    pdo \
-    pdo_mysql \
-    mbstring \
-    tokenizer \
-    xml \
-    ctype \
-    json \
-    bcmath
-
+    unzip \
+    libpng-dev \
+    libzip-dev \
+    oniguruma-dev
 
 # Install Composer
-RUN apt-get update && apt-get install -y \
-    unzip git curl && \
-    curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-
-# Install dependencies (tanpa dev untuk production)
-RUN composer install --optimize-autoloader --no-dev
-
-RUN composer self-update
-
-RUN composer clear-cache
-
-WORKDIR /var/www
-
-# Install system dependencies
-RUN apt update && apt install -y \
-    git \
-    curl \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    zip \
-    unzip \
-    nginx \
-    supervisor \
-    default-mysql-client \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 RUN mkdir -p /var/www/
 
 WORKDIR /var/www/
+# Copy application
+COPY . .
 
-# Copy package files first
-COPY package*.json ./
+# Verifikasi file artisan ada
+RUN ls -la artisan || echo "artisan file not found!"
 
+# Hapus vendor directory jika ada (dari host)
+RUN rm -rf vendor/
+
+RUN composer install --optimize-autoloader --no-dev --prefer-dist
 
 # Clean cache thoroughly sebelum install
 RUN npm cache clean --force && \
     npm install
 
+RUN composer self-update
 
-# Copy application
-COPY . .
+RUN composer clear-cache
 
-# Setup permissions
-RUN chown -R www-data:www-data /var/www/storage \
-    && chown -R www-data:www-data /var/www/bootstrap/cache \
-    && chmod -R 775 /var/www/storage \
-    && chmod -R 775 /var/www/bootstrap/cache
+# Gunakan user nobody (default Alpine user)
+#RUN chown -R www-data:www-data /var/www/storage
+#RUN chown -R www-data:www-data /var/www/bootstrap/cache
+RUN chmod -R 775 /var/www/storage
+RUN chmod -R 775 /var/www/bootstrap/cache
 
 # Copy configurations
-COPY docker/nginx.conf /etc/nginx/sites-available/default
+# Copy fixed nginx configuration
+COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php.ini /usr/local/etc/php/local.ini
+
+# Remove default.conf yang problematic
+RUN rm -f /etc/nginx/conf.d/default.conf
 
 # Health check script
 COPY docker/health-check.sh /usr/local/bin/health-check.sh
@@ -98,8 +96,10 @@ RUN php artisan key:generate --no-ansi
 
 EXPOSE 9000
 
+RUN ["chmod", "+x", "post_deploy.sh"]
+
 # Use supervisor to manage processes
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf","php-fpm"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf","php-fpm","sh", "post_deploy.sh"]
 
 # Health check untuk container
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
