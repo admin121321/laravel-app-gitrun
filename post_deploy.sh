@@ -5,4 +5,4 @@ php artisan optimize
 
 # start the application
 
-php-fpm -D &&  nginx -g "daemon off;"
+php-fpm83 -D &&  nginx -g "daemon off;"

@@ -101,7 +101,7 @@ RUN ["chmod", "+x", "post_deploy.sh"]
 # Use supervisor to manage processes
 #CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf","php-fpm","sh", "post_deploy.sh"]
 
-CMD ["php-fpm","sh", "post_deploy.sh"]
+CMD ["sh", "post_deploy.sh"]
 
 # Health check untuk container
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
