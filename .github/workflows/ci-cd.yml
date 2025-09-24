@@ -96,7 +96,7 @@ jobs:
         php artisan migrate --force
         php artisan test
 
-  build-and-deploy:
+  build-and-deploy-app:
     needs: tests
     runs-on: self-hosted  # Runner di Windows dengan Docker Desktop
     if: github.ref == 'refs/heads/main'
