@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: laravel-app
-        image: laravel-app:latest
+        image: laravel:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
