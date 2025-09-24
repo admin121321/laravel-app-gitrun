@@ -105,12 +105,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Run PowerShell commands
-      shell: pwsh
+    - name: Run commands
+      shell: cmd
       run: |
-        # PowerShell commands langsung
-        Write-Host "PowerShell version:"
-        $PSVersionTable.PSVersion
+        echo "Menggunakan CMD instead of PowerShell"
+        php artisan --version
 
     - name: Verify Environment
       shell: pwsh
