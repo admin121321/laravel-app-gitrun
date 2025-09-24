@@ -1,18 +1,13 @@
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: v1
+kind: Service
 metadata:
-  name: laravel-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+  name: laravel-service
+  namespace: laravel-app
 spec:
-  rules:
-  - host: laravel-app.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: laravel-service
-            port:
-              number: 80
+  selector:
+    app: laravel-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: LoadBalancer  # Docker Desktop akan assign local IP

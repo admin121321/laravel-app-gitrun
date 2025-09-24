@@ -1,3 +1,4 @@
+# Gunakan image yang compatible dengan Windows
 FROM php:8.3-fpm
 
 # Set working directory
@@ -15,41 +16,32 @@ RUN apt-get update && apt-get install -y \
     nginx \
     supervisor
 
-# Clear cache
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
-
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# Install Redis extension
-RUN pecl install redis && docker-php-ext-enable redis
-
-# Get latest Composer
+# Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy existing application directory contents
+# Copy application
 COPY . .
 
-# Copy nginx configuration
-COPY docker/nginx.conf /etc/nginx/sites-available/default
+# Install dependencies
+RUN composer install --optimize-autoloader --no-dev
 
-# Copy supervisor configuration
+# Setup permissions (important for Windows)
+RUN chown -R www-data:www-data /var/www/storage \
+    && chown -R www-data:www-data /var/www/bootstrap/cache \
+    && chmod -R 775 /var/www/storage \
+    && chmod -R 775 /var/www/bootstrap/cache
+
+# Copy configurations
+COPY docker/nginx.conf /etc/nginx/sites-available/default
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Install dependencies
-RUN composer install --no-dev --optimize-autoloader
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000 || exit 1
 
-# Set permissions
-RUN chown -R www-data:www-data /var/www/storage
-RUN chown -R www-data:www-data /var/www/bootstrap/cache
-RUN chmod -R 775 /var/www/storage
-RUN chmod -R 775 /var/www/bootstrap/cache
-
-# Generate application key
-RUN php artisan key:generate
-
-# Expose port 8000 and start php-fpm server
 EXPOSE 8000
 
-# Start supervisor
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

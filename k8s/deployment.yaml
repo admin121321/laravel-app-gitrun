@@ -2,10 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: laravel-app
-  labels:
-    app: laravel-app
+  namespace: laravel-app
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
       app: laravel-app
@@ -16,91 +15,25 @@ spec:
     spec:
       containers:
       - name: laravel-app
-        image: ghcr.io/your-username/your-repo:latest
+        image: laravel-app:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
         env:
         - name: APP_ENV
-          value: "production"
+          value: "local"
         - name: APP_DEBUG
-          value: "false"
+          value: "true"
         - name: DB_HOST
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: host
+          value: "mysql-service"
         - name: DB_PORT
           value: "3306"
         - name: DB_DATABASE
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: database
+          value: "laravel_db"
         - name: DB_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: username
+          value: "laravel_user"
         - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: password
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 8000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 8000
-          initialDelaySeconds: 5
-          periodSeconds: 5
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mysql
-  labels:
-    app: mysql
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: mysql
-  template:
-    metadata:
-      labels:
-        app: mysql
-    spec:
-      containers:
-      - name: mysql
-        image: mysql:8.0
-        env:
-        - name: MYSQL_ROOT_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: root-password
-        - name: MYSQL_DATABASE
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: database
-        ports:
-        - containerPort: 3306
-        volumeMounts:
-        - name: mysql-storage
-          mountPath: /var/lib/mysql
+          value: "laravel_password"
         resources:
           requests:
             memory: "512Mi"
@@ -108,7 +41,15 @@ spec:
           limits:
             memory: "1Gi"
             cpu: "500m"
-      volumes:
-      - name: mysql-storage
-        persistentVolumeClaim:
-          claimName: mysql-pvc
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 60  # Lebih lama untuk Windows
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 5
