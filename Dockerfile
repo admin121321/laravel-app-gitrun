@@ -1,9 +1,45 @@
-FROM php:8.3-fpm
+FROM php:8.3.26RC1-fpm-alpine3.21
+
+FROM node:22.11-alpine
+
+# Install system dependencies
+RUN apk update && apk add --no-cache \
+    nginx \
+    nodejs \
+    npm \
+    git \
+    curl \
+    zip \
+    unzip
+
+# Install PHP extensions untuk Laravel
+RUN docker-php-ext-install \
+    pdo \
+    pdo_mysql \
+    mbstring \
+    tokenizer \
+    xml \
+    ctype \
+    json \
+    bcmath
+
+
+# Install Composer
+RUN apt-get update && apt-get install -y \
+    unzip git curl && \
+    curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Install dependencies (tanpa dev untuk production)
+RUN composer install --optimize-autoloader --no-dev
+
+RUN composer self-update
+
+RUN composer clear-cache
 
 WORKDIR /var/www
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt update && apt install -y \
     git \
     curl \
     libpng-dev \
@@ -17,26 +53,22 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+RUN mkdir -p /var/www/
+
+WORKDIR /var/www/
+
+# Copy package files first
+COPY package*.json ./
+
+
+# Clean cache thoroughly sebelum install
+RUN npm cache clean --force && \
+    npm install
+
 
 # Copy application
 COPY . .
-
-# Install dependencies (tanpa dev untuk production)
-RUN composer install --optimize-autoloader --no-dev
-
-FROM node:lts-trixie-slim
-
-# setup Node JS
-RUN npm install
-
-RUN npm rebuild node-sass
-
-RUN npm run build
 
 # Setup permissions
 RUN chown -R www-data:www-data /var/www/storage \
@@ -53,24 +85,21 @@ COPY docker/php.ini /usr/local/etc/php/local.ini
 COPY docker/health-check.sh /usr/local/bin/health-check.sh
 RUN chmod +x /usr/local/bin/health-check.sh
 
+# Setup Nginx dan PHP-FPM directories
+RUN mkdir -p /var/log/nginx /var/lib/nginx
+RUN mkdir -p /run/nginx
+
+# Copy PHP-FPM configuration
+COPY docker/www.conf /usr/local/etc/php-fpm.d/www.conf
+
 # Generate key (will be overridden by env)
 RUN php artisan key:generate --no-ansi
-
-# setup composer and laravel
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-
-#RUN composer install --working-dir="/var/www"
-RUN composer install --no-interaction --no-scripts --no-progress --no-dev --optimize-autoloader
-
-RUN composer self-update
-
-RUN composer clear-cache
 
 
 EXPOSE 9000
 
 # Use supervisor to manage processes
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf","php-fpm"]
 
 # Health check untuk container
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
