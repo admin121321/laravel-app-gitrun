@@ -105,8 +105,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup PowerShell
-      uses: actions/setup-powershell@v3
+    - name: Run PowerShell commands
+      shell: pwsh
+      run: |
+        # PowerShell commands langsung
+        Write-Host "PowerShell version:"
+        $PSVersionTable.PSVersion
 
     - name: Verify Environment
       shell: pwsh
