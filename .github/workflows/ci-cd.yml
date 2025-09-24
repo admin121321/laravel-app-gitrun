@@ -105,8 +105,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup PowerShell
-      uses: actions/setup-powershell@v3
+    - name: Run PowerShell
+      shell: pwsh
+      run: |
+        Write-Host "Ini PowerShell bawaan Windows"
+        $PSVersionTable
 
     - name: Verify Environment
       shell: pwsh
