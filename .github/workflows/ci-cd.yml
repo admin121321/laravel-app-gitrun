@@ -105,11 +105,8 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Run commands
-      shell: cmd
-      run: |
-        echo "Menggunakan CMD instead of PowerShell"
-        php artisan --version
+    - name: Setup PowerShell
+      uses: https://github.com/actions/setup-powershell@v3
 
     - name: Verify Environment
       shell: pwsh
