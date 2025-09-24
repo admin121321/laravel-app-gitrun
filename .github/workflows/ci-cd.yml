@@ -159,18 +159,8 @@ jobs:
       shell: powershell
       run: |
         Write-Host "Initializing database..." -ForegroundColor Cyan
-        
-        # Wait a bit more for MySQL to be fully ready
-        Start-Sleep -Seconds 10
-        
-        # Create database and user (jika belum ada)
-        Write-Host "Setting up database schema..." -ForegroundColor Yellow
-        kubectl exec deployment/mysql -n ${{ env.K8S_NAMESPACE }} -- mysql -u root -prootpassword -e "
-            CREATE DATABASE IF NOT EXISTS ${{ env.MYSQL_DATABASE }};
-            CREATE USER IF NOT EXISTS '${{ env.MYSQL_USER }}'@'%' IDENTIFIED BY 'testpassword';
-            GRANT ALL PRIVILEGES ON ${{ env.MYSQL_DATABASE }}.* TO '${{ env.MYSQL_USER }}'@'%';
-            FLUSH PRIVILEGES;
-        " 2>&1 | Write-Host
+
+        .\scripts\init-database.ps1 -Namespace "${{ env.K8S_NAMESPACE }}" -MysqlPassword "rootpassword"
 
     - name: Deploy Laravel Application
       shell: powershell
