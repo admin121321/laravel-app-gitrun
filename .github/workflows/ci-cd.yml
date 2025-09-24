@@ -106,7 +106,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Run PowerShell
-      shell: pwsh
+      shell: powershell
       run: |
         Write-Host "Ini PowerShell bawaan Windows"
         $PSVersionTable
