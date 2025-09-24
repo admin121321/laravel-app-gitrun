@@ -9,7 +9,7 @@ on:
 
 env:
   APP_NAME: laravel-app
-  K8S_NAMESPACE: my-app
+  K8S_NAMESPACE: laravel-app
   MYSQL_DATABASE: laravel_db
   MYSQL_USER: laravel_user
 
@@ -137,17 +137,7 @@ jobs:
     - name: Setup Kubernetes Namespace
       shell: powershell
       run: |
-        Write-Host "Setting up Kubernetes namespace..." -ForegroundColor Cyan
-         $namespace = "laravel-app"
-        
-        # Check if namespace exists
-        kubectl get namespace $namespace 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "Creating namespace: $namespace"
-            kubectl create namespace $namespace
-        } else {
-            Write-Host "Namespace $namespace already exists"
-        }
+         kubectl create namespace laravel-app --dry-run=client -o yaml | kubectl apply -f -
 
     - name: Deploy MySQL Database
       shell: powershell
