@@ -103,20 +103,21 @@ RUN mkdir -p /var/log/nginx /var/lib/nginx
 RUN mkdir -p /run/nginx
 
 # Copy PHP-FPM configuration
-COPY docker/www.conf /usr/local/etc/php-fpm.d/www.conf
+#COPY docker/www.conf /usr/local/etc/php-fpm.d/www.conf
+COPY docker/php-fpm.conf /etc/php83/php-fpm.d/www.conf
 
 # Generate key (will be overridden by env)
 RUN php artisan key:generate --no-ansi
 
+RUN php-fpm83 -t
 
-EXPOSE 9000
+EXPOSE 80
 
 RUN ["chmod", "+x", "post_deploy.sh"]
 
 # Use supervisor to manage processes
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf","sh", "post_deploy.sh"]
 
-#CMD ["sh", "post_deploy.sh"]
 
 # Health check untuk container
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
