@@ -116,7 +116,7 @@ EXPOSE 80
 RUN ["chmod", "+x", "post_deploy.sh"]
 
 # Use supervisor to manage processes
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf","sh", "post_deploy.sh"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 
 
 # Health check untuk container
