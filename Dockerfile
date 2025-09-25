@@ -3,9 +3,6 @@ FROM php:8.3.26RC1-fpm-alpine3.21
 
 FROM node:22.11-alpine
   
-# setup user as root
-USER root
-
 # Install PHP dengan SEMUA extensions yang diperlukan Laravel
 RUN apk update && apk add --no-cache \
     php83 \
@@ -37,22 +34,29 @@ RUN apk update && apk add --no-cache \
     unzip \
     libpng-dev \
     libzip-dev \
-    oniguruma-dev
+    oniguruma-dev \
+    supervisor
 
-RUN ln -s /usr/bin/php83 /usr/bin/php
+
 RUN ln -s /usr/sbin/php-fpm83 /usr/sbin/php-fpm
-
-# Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 RUN mkdir -p /var/www/
 
 WORKDIR /var/www/
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
 # Copy application
 COPY . .
 
 # Copy supervisord configuration
+RUN which supervisord
+
+RUN ls -la /usr/bin/supervisord
+
 COPY /docker/supervisord.conf /etc/supervisord.conf
+
 # Verifikasi file artisan ada
 RUN ls -la artisan || echo "artisan file not found!"
 
@@ -104,7 +108,7 @@ EXPOSE 9000
 RUN ["chmod", "+x", "post_deploy.sh"]
 
 # Use supervisor to manage processes
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
 
 #CMD ["sh", "post_deploy.sh"]
 
