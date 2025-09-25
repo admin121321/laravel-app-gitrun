@@ -51,11 +51,17 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY . .
 
 # Copy supervisord configuration
+# Debug: Cek supervisord installation
+RUN echo "=== SUPERVISORD DEBUG ==="
 RUN which supervisord
-
 RUN ls -la /usr/bin/supervisord
+RUN supervisord --version
 
-COPY /docker/supervisord.conf /etc/supervisord.conf
+# Cek directory structure
+RUN mkdir -p /etc/supervisor/conf.d
+RUN ls -la /etc/supervisor/
+
+COPY /docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Verifikasi file artisan ada
 RUN ls -la artisan || echo "artisan file not found!"
@@ -108,7 +114,7 @@ EXPOSE 9000
 RUN ["chmod", "+x", "post_deploy.sh"]
 
 # Use supervisor to manage processes
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 
 #CMD ["sh", "post_deploy.sh"]
 
