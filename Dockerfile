@@ -1,8 +1,11 @@
 
+
 FROM php:8.3.26RC1-fpm-alpine3.21
 
-FROM node:22.11-alpine
-  
+FROM node:lts-alpine3.22
+
+USER root  
+
 # Install PHP dengan SEMUA extensions yang diperlukan Laravel
 RUN apk update && apk add --no-cache \
     php83 \
@@ -37,8 +40,10 @@ RUN apk update && apk add --no-cache \
     oniguruma-dev \
     supervisor
 
-
-RUN ln -s /usr/sbin/php-fpm83 /usr/sbin/php-fpm
+# BUAT DIRECTORY UNTUK PHP-FPM SOCKET SEBELUM COPY APLIKASI
+#RUN mkdir -p /var/run/php
+#RUN chown -R nobody:nobody /var/run/php
+#RUN chmod -R 775 /var/run/php
 
 RUN mkdir -p /var/www/
 
@@ -52,16 +57,16 @@ COPY . .
 
 # Copy supervisord configuration
 # Debug: Cek supervisord installation
-RUN echo "=== SUPERVISORD DEBUG ==="
-RUN which supervisord
-RUN ls -la /usr/bin/supervisord
-RUN supervisord --version
+#RUN echo "=== SUPERVISORD DEBUG ==="
+#RUN which supervisord
+#RUN ls -la /usr/bin/supervisord
+#RUN supervisord --version
 
 # Cek directory structure
-RUN mkdir -p /etc/supervisor/conf.d
-RUN ls -la /etc/supervisor/
+#RUN mkdir -p /etc/supervisor/conf.d
+#RUN ls -la /etc/supervisor/
 
-COPY /docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+#COPY /docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Verifikasi file artisan ada
 RUN ls -la artisan || echo "artisan file not found!"
@@ -79,44 +84,51 @@ RUN composer self-update
 
 RUN composer clear-cache
 
+# Copy PHP-FPM configuration
+COPY docker/www.conf /usr/local/etc/php-fpm.d/www.conf
+#COPY docker/php-fpm.conf /etc/php83/php-fpm.d/www.conf
+
 # Gunakan user nobody (default Alpine user)
-#RUN chown -R www-data:www-data /var/www/storage
-#RUN chown -R www-data:www-data /var/www/bootstrap/cache
-RUN chmod -R 775 /var/www/storage
-RUN chmod -R 775 /var/www/bootstrap/cache
+RUN chown -R nobody:nobody /var/www/
+RUN chown -R nobody:nobody /var/www/storage
+RUN chown -R nobody:nobody /var/www/bootstrap/cache
+RUN chmod +rwx /var/www/
+RUN chmod -R 777 /var/www/
 
 # Copy configurations
 # Copy fixed nginx configuration
 COPY docker/nginx.conf /etc/nginx/nginx.conf
-#COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php.ini /usr/local/etc/php/local.ini
-
-# Remove default.conf yang problematic
-RUN rm -f /etc/nginx/conf.d/default.conf
+#COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Health check script
-COPY docker/health-check.sh /usr/local/bin/health-check.sh
-RUN chmod +x /usr/local/bin/health-check.sh
+#COPY docker/health-check.sh /usr/local/bin/health-check.sh
+#RUN chmod +x /usr/local/bin/health-check.sh
 
 # Setup Nginx dan PHP-FPM directories
 RUN mkdir -p /var/log/nginx /var/lib/nginx
 RUN mkdir -p /run/nginx
 
-# Copy PHP-FPM configuration
-#COPY docker/www.conf /usr/local/etc/php-fpm.d/www.conf
-COPY docker/php-fpm.conf /etc/php83/php-fpm.d/www.conf
-
 # Generate key (will be overridden by env)
 RUN php artisan key:generate --no-ansi
 
-RUN php-fpm83 -t
+# Buat startup script yang robust
+#COPY docker/start.sh /start.sh
+#RUN chmod +x /start.sh
+
+# Optimize Laravel
+RUN php83 artisan config:cache
+RUN php83 artisan route:cache
+
+RUN npm run build  
 
 EXPOSE 80
 
 RUN ["chmod", "+x", "post_deploy.sh"]
-
+CMD [ "sh", "post_deploy.sh" ]
 # Use supervisor to manage processes
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+#CMD ["php83", "-S", "0.0.0.0:80", "-t", "public"]
+#CMD ["/start.sh"]
 
 
 # Health check untuk container
