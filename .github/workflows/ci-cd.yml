@@ -1,33 +1,28 @@
-name: Laravel CI/CD to Local Kubernetes
+name: Deploy Laravel to Kubernetes
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # Manual trigger
 
 env:
-  APP_NAME: laravel-app
-  K8S_NAMESPACE: laravel-app
-  MYSQL_DATABASE: laravel_db
-  MYSQL_USER: laravel_user
+  REGISTRY: docker.io
+  IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/laravel-app
+  K8S_NAMESPACE: laravel-production
 
 jobs:
-  tests:
+  test:
     runs-on: ubuntu-latest
     services:
       mysql:
-        image: mysql:8.0
+        image: mysql:8.4
         env:
-          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: laravel_test
-          MYSQL_USER: laravel_test_user
-          MYSQL_PASSWORD: testpassword
         ports:
           - 3306:3306
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -36,293 +31,101 @@ jobs:
       uses: shivammathur/setup-php@v2
       with:
         php-version: '8.3'
-        extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql, gd, bcmath
-        coverage: xdebug
+        extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql
+        coverage: none
 
-    - name: Validate composer.json
-      run: composer validate --strict
-
-    - name: Cache Composer packages
-      uses: actions/cache@v3
-      with:
-        path: vendor
-        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-php-
+    - name: Copy .env
+      run: cp .env.example .env
 
     - name: Install dependencies
-      run: composer install --prefer-dist --no-progress --no-interaction
+      run: composer install --prefer-dist --no-progress --no-suggest
 
-    - name: Prepare environment
-      run: |
-        cp .env.example .env
-        php artisan key:generate
-   
-    - name: Install Node dependencies
-      run: npm install
+    - name: Generate key
+      run: php artisan key:generate
 
-    - name: Build assets
-      run: npm run build
-    
-    - name: Wait for MySQL to be ready
-      run: |
-        for i in {1..30}; do
-          if mysql -h 127.0.0.1 -u root -prootpassword -e "SELECT 1" &>/dev/null; then
-            echo "MySQL is ready!"
-            break
-          fi
-          echo "Waiting for MySQL... ($i/30)"
-          sleep 2
-        done
-
-    - name: Setup test database
-      run: |
-        mysql -h 127.0.0.1 -u root -prootpassword << EOF
-        CREATE DATABASE IF NOT EXISTS laravel_test;
-        CREATE USER IF NOT EXISTS 'laravel_test_user'@'%' IDENTIFIED BY 'testpassword';
-        GRANT ALL PRIVILEGES ON laravel_test.* TO 'laravel_test_user'@'%';
-        FLUSH PRIVILEGES;
-        EOF
-
-    - name: Run tests
+    - name: Execute tests
+      run: php artisan test
       env:
-        DB_CONNECTION: mysql
         DB_HOST: 127.0.0.1
-        DB_PORT: 3306
         DB_DATABASE: laravel_test
-        DB_USERNAME: laravel_test_user
-        DB_PASSWORD: testpassword
-      run: |
-        php artisan migrate --force
-        php artisan test
+        DB_USERNAME: root
+        DB_PASSWORD: root
 
-  build-and-deploy:
-    needs: tests
-    runs-on: self-hosted  # Runner di Windows dengan Docker Desktop
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: test
     if: github.ref == 'refs/heads/main'
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Run PowerShell
-      shell: powershell
-      run: |
-        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-        Get-ExecutionPolicy -List
-        Write-Host "Ini PowerShell bawaan Windows"
-        $PSVersionTable
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-    - name: Verify Environment
-      shell: powershell
-      run: |
-        Write-Host "=== Environment Verification ===" -ForegroundColor Green
-        Write-Host "Docker Version:" -ForegroundColor Yellow
-        docker --version
-        Write-Host "Kubernetes Version:" -ForegroundColor Yellow
-        kubectl version --client
-        Write-Host "Kubernetes Nodes:" -ForegroundColor Yellow
-        kubectl get nodes
-        Write-Host "Current Context:" -ForegroundColor Yellow
-        kubectl config current-context
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Build Docker Image
-      shell: powershell
-      run: |
-        Write-Host "Building Docker image..." -ForegroundColor Cyan
-        docker build -t ${{ env.APP_NAME }}:latest -t ${{ env.APP_NAME }}:${{ github.sha }} .
-        Write-Host "Docker images built successfully!" -ForegroundColor Green
-        docker images | Select-String "${{ env.APP_NAME }}"
+    - name: Extract metadata for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.IMAGE_NAME }}
+        tags: |
+          type=sha,prefix={{branch}}-
+          latest
 
-    - name: Setup Kubernetes Namespace
-      shell: powershell
-      run: |
-         kubectl create namespace laravel-app --dry-run=client -o yaml | kubectl apply -f -
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
-    - name: Deploy MySQL Database
-      shell: powershell
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Kubeconfig
       run: |
-        Write-Host "Deploying MySQL database..." -ForegroundColor Cyan
-        
-        # Apply MySQL resources
-        Get-ChildItem "kubernetes/mysql-*" | ForEach-Object {
-            Write-Host "Applying $($_.Name)..." -ForegroundColor White
-            kubectl apply -f $_.FullName -n ${{ env.K8S_NAMESPACE }}
-        }
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
+        chmod 600 ~/.kube/config
+
+    - name: Deploy to Kubernetes
+      run: |
+        # Apply MySQL
+        kubectl apply -f k8s/mysql.yaml
         
         # Wait for MySQL to be ready
-        Write-Host "Waiting for MySQL to be ready..." -ForegroundColor Yellow
-        kubectl wait --for=condition=ready pod -l app=mysql -n ${{ env.K8S_NAMESPACE }} --timeout=300s
-        Write-Host "MySQL is ready!" -ForegroundColor Green
+        kubectl wait --for=condition=ready pod -l app=mysql --timeout=300s
+        
+        # Apply secrets
+        kubectl apply -f k8s/secret.yaml
+        
+        # Apply configmaps
+        kubectl apply -f k8s/configmap.yaml
+        
+        # Deploy Laravel application
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
+        
+        # Wait for deployment to complete
+        kubectl rollout status deployment/laravel-app --timeout=300s
 
-    - name: Initialize Database
-      shell: powershell
+    - name: Run additional migrations
       run: |
-        Write-Host "🚀 Initializing database..." -ForegroundColor Cyan
-        
-        # Wait for MySQL
-        kubectl wait --for=condition=ready pod -l app=mysql -n ${{ env.K8S_NAMESPACE }} --timeout=300s
-        Start-Sleep -Seconds 20
-        
-        # Get pod name
-        $podName = kubectl get pods -n ${{ env.K8S_NAMESPACE }} -l app=mysql -o jsonpath='{.items[0].metadata.name}'
-        Write-Host "MySQL Pod: $podName" -ForegroundColor White
-        
-        # Execute SQL commands directly
-        $commands = @(
-            "CREATE DATABASE IF NOT EXISTS laravel_db;",
-            "CREATE USER IF NOT EXISTS 'laravel_user'@'%' IDENTIFIED BY 'laravel_password';", 
-            "GRANT ALL PRIVILEGES ON laravel_db.* TO 'laravel_user'@'%';",
-            "FLUSH PRIVILEGES;"
-        )
-        
-        foreach ($cmd in $commands) {
-            Write-Host "Executing: $cmd" -ForegroundColor Gray
-            kubectl exec $podName -n ${{ env.K8S_NAMESPACE }} -- mysql -u root -prootpassword -e "$cmd"
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "✅ Success" -ForegroundColor Green
-            } else {
-                Write-Host "❌ Failed" -ForegroundColor Red
-            }
-        }
-        
-        Write-Host "🎉 Database initialization completed!" -ForegroundColor Green  
-
-    - name: Deploy Laravel Application
-      shell: powershell
-      run: |
-        Write-Host "Deploying Laravel application..." -ForegroundColor Cyan
-        
-        # Apply Laravel resources
-        kubectl apply -f kubernetes/laravel-deployment.yml -n ${{ env.K8S_NAMESPACE }}
-        kubectl apply -f kubernetes/laravel-service.yml -n ${{ env.K8S_NAMESPACE }}
-        
-        # Wait dengan timeout lebih lama dan continue on error
-        Write-Host "Waiting for Laravel pods to be ready (timeout: 600s)..." -ForegroundColor Yellow
-        kubectl wait --for=condition=ready pod -l app=laravel-app -n ${{ env.K8S_NAMESPACE }} --timeout=600s -or true
-        
-        # Debug jika masih timeout
-        Write-Host "Pod status after wait:" -ForegroundColor Yellow
-        kubectl get pods -n ${{ env.K8S_NAMESPACE }} -l app=laravel-app -o wide
-        
-        # Check pod conditions
-        $pods = kubectl get pods -n ${{ env.K8S_NAMESPACE }} -l app=laravel-app -o jsonpath='{.items[*].metadata.name}'
-        foreach ($pod in $pods.Split(' ')) {
-            if ($pod) {
-                Write-Host "`nDebugging pod: $pod" -ForegroundColor Cyan
-                kubectl describe pod $pod -n ${{ env.K8S_NAMESPACE }} | Select-String -Pattern "Events:" -Context 0,10
-                Write-Host "Logs (last 15 lines):" -ForegroundColor Gray
-                kubectl logs $pod -n ${{ env.K8S_NAMESPACE }} --tail=15
-            }
-        }
-
-
-    - name: Run Database Migrations
-      shell: powershell
-      run: |
-       Write-Host "Running database migrations..." -ForegroundColor Cyan
-        
-        $maxRetries = 5
-        $retryCount = 0
-        
-        while ($retryCount -lt $maxRetries) {
-            try {
-                Write-Host "Migration attempt $($retryCount + 1)/$maxRetries" -ForegroundColor Yellow
-                kubectl exec deployment/laravel-app -n ${{ env.K8S_NAMESPACE }} -- php artisan migrate --force --no-interaction
-                Write-Host "✅ Migrations completed successfully!" -ForegroundColor Green
-                break
-            } catch {
-                $retryCount++
-                Write-Host "❌ Migration attempt $retryCount failed: $($_.Exception.Message)" -ForegroundColor Red
-                if ($retryCount -eq $maxRetries) {
-                    Write-Host "💥 All migration attempts failed!" -ForegroundColor Red
-                    # Continue anyway, mungkin aplikasi masih starting up
-                } else {
-                    Write-Host "⏳ Retrying in 15 seconds..." -ForegroundColor Yellow
-                    Start-Sleep -Seconds 15
-                }
-            }
-        }
-
-    - name: Run Database Seeders
-      shell: powershell
-      run: |
-        Write-Host "Running database seeders..." -ForegroundColor Cyan
-        kubectl exec deployment/${{ env.APP_NAME }} -n ${{ env.K8S_NAMESPACE }} -- php artisan db:seed --force
-        Write-Host "Seeders completed successfully!" -ForegroundColor Green
-
-    - name: Health Check
-      shell: powershell
-      run: |
-        Write-Host "Performing health check..." -ForegroundColor Cyan
-        
-        # Start port forwarding
-        $portForwardJob = Start-Job -ScriptBlock {
-            kubectl port-forward -n ${{ env.K8S_NAMESPACE }} service/laravel-service 8080:80
-        }
-        
-        # Wait for port forward to establish
-        Start-Sleep -Seconds 15
-        
-        try {
-            $response = Invoke-WebRequest -Uri "http://localhost:8080" -TimeoutSec 30
-            Write-Host "✅ Health check passed! HTTP Status: $($response.StatusCode)" -ForegroundColor Green
-            
-            # Test database connection through application
-            $apiResponse = Invoke-WebRequest -Uri "http://localhost:8080/api/health" -TimeoutSec 30
-            Write-Host "✅ API health check passed!" -ForegroundColor Green
-        } catch {
-            Write-Host "❌ Health check failed: $($_.Exception.Message)" -ForegroundColor Red
-        } finally {
-            # Stop port forwarding
-            $portForwardJob | Stop-Job | Remove-Job
-        }
-
-    - name: Deployment Summary
-      shell: powershell
-      run: |
-        $summary = @"
-        # 🚀 Deployment Successful!
-
-        **Application:** Laravel with MySQL
-        **Environment:** Local Kubernetes (Docker Desktop)
-        **Namespace:** ${{ env.K8S_NAMESPACE }}
-        **Commit:** ${{ github.sha }}
-        **Deployed at:** $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-
-        ## 📊 Deployment Status:
-        $(kubectl get all -n ${{ env.K8S_NAMESPACE }} | Out-String)
-
-        ## 🔗 Access Methods:
-
-        1. **Port Forwarding:**
-        ```powershell
-        kubectl port-forward -n ${{ env.K8S_NAMESPACE }} service/laravel-service 8080:80
-        ```
-        Then visit: http://localhost:8080
-
-        2. **Direct Service Access:**
-        ```powershell
-        kubectl get svc -n ${{ env.K8S_NAMESPACE }} laravel-service
-        ```
-
-        3. **View Logs:**
-        ```powershell
-        kubectl logs -f deployment/${{ env.APP_NAME }} -n ${{ env.K8S_NAMESPACE }}
-        ```
-
-        4. **Database Access:**
-        ```powershell
-        kubectl exec -it deployment/mysql -n ${{ env.K8S_NAMESPACE }} -- mysql -u root -p
-        ```
-
-        ## 🛠️ Useful Commands:
-        - Check pods: `kubectl get pods -n ${{ env.K8S_NAMESPACE }}`
-        - View logs: `kubectl logs -f <pod-name> -n ${{ env.K8S_NAMESPACE }}`
-        - Restart deployment: `kubectl rollout restart deployment/${{ env.APP_NAME }} -n ${{ env.K8S_NAMESPACE }}`
-        - Delete everything: `kubectl delete namespace ${{ env.K8S_NAMESPACE }}`
-        "@
-        
-        Write-Host $summary -ForegroundColor Green
-        # Set deployment summary for GitHub
-        echo "$summary" >> $GITHUB_STEP_SUMMARY
+        kubectl get pods -l app=laravel
+        # Optional: Run seeders if needed
+        # kubectl exec deployment/laravel-app -- php artisan db:seed --force
