@@ -247,12 +247,12 @@ jobs:
             }
         }
 
-    - name: Run Database Seeders
-      shell: powershell
-      run: |
-        Write-Host "Running database seeders..." -ForegroundColor Cyan
-        kubectl exec deployment/${{ env.APP_NAME }} -n ${{ env.K8S_NAMESPACE }} -- php artisan db:seed --force
-        Write-Host "Seeders completed successfully!" -ForegroundColor Green
+    # - name: Run Database Seeders
+    #   shell: powershell
+    #   run: |
+    #     Write-Host "Running database seeders..." -ForegroundColor Cyan
+    #     kubectl exec deployment/${{ env.APP_NAME }} -n ${{ env.K8S_NAMESPACE }} -- php artisan db:seed --force
+    #     Write-Host "Seeders completed successfully!" -ForegroundColor Green
 
     - name: Health Check
       shell: powershell
