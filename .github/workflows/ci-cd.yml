@@ -202,7 +202,7 @@ jobs:
         
         # Wait dengan timeout lebih lama dan continue on error
         Write-Host "Waiting for Laravel pods to be ready (timeout: 600s)..." -ForegroundColor Yellow
-        kubectl wait --for=condition=ready pod -l app=laravel-app -n ${{ env.K8S_NAMESPACE }} --timeout=600s -or true
+        kubectl wait --for=condition=ready pod -l app=laravel-app -n ${{ env.K8S_NAMESPACE }} --timeout=600s --or true
         
         # Debug jika masih timeout
         Write-Host "Pod status after wait:" -ForegroundColor Yellow
