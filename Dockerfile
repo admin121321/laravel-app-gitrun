@@ -110,7 +110,7 @@ RUN mkdir -p /var/log/nginx /var/lib/nginx
 RUN mkdir -p /run/nginx
 
 # Generate key (will be overridden by env)
-RUN php artisan key:generate --no-ansi
+#RUN php artisan key:generate --no-ansi
 
 # Buat startup script yang robust
 #COPY docker/start.sh /start.sh
