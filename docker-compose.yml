@@ -7,7 +7,7 @@ services:
     container_name: nginx
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8000:80"
     environment:
       working_dir: /var/www/
     volumes:
