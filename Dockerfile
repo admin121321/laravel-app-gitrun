@@ -122,7 +122,7 @@ RUN php83 artisan route:cache
 
 RUN npm run build  
 
-EXPOSE 80
+EXPOSE 8000
 
 RUN ["chmod", "+x", "post_deploy.sh"]
 CMD [ "sh", "post_deploy.sh" ]
