@@ -106,8 +106,27 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup PowerShell (CORRECT FORMAT)
-      uses: Microsoft/setup-powershell@v2
+     - name: Install PowerShell (Binary - Fast & Reliable)
+      run: |
+        echo "🚀 Installing PowerShell via binary..."
+        
+        # Download binary langsung dari GitHub releases
+        cd /tmp
+        wget -q https://github.com/PowerShell/PowerShell/releases/download/v7.4.2/powershell-7.4.2-linux-x64.tar.gz
+        
+        # Extract ke /opt/microsoft/powershell
+        sudo mkdir -p /opt/microsoft/powershell/7
+        sudo tar -xzf powershell-7.4.2-linux-x64.tar.gz -C /opt/microsoft/powershell/7
+        
+        # Buat symbolic link
+        sudo chmod +x /opt/microsoft/powershell/7/pwsh
+        sudo ln -sf /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh
+        
+        # Cleanup
+        rm powershell-7.4.2-linux-x64.tar.gz
+        cd $GITHUB_WORKSPACE
+        
+        echo "✅ PowerShell installed successfully!"
 
     - name: Verify
       shell: pwsh
