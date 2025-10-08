@@ -106,14 +106,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install PowerShell Binary (Fast)
-      run: |
-        # Download binary langsung (lebih cepat)
-        wget -q https://github.com/PowerShell/PowerShell/releases/download/v7.4.2/powershell-7.4.2-linux-x64.tar.gz
-        sudo tar -xzf powershell-7.4.2-linux-x64.tar.gz -C /usr/local/
-        sudo ln -s /usr/local/pwsh /usr/bin/pwsh
-        # Tidak perlu apt update!
-        
+    - name: Setup PowerShell (FAST)
+      uses: actions/setup-powershell@v4
+
     - name: Verify
       shell: pwsh
       run: |
