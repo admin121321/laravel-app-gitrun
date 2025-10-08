@@ -106,29 +106,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install PowerShell on Ubuntu
-      run: |
-        sudo apt update
-        sudo apt install -y wget
-        sudo apt install -y wget apt-transport-https software-properties-common
-        wget -q https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb
-        sudo dpkg -i packages-microsoft-prod.deb
-        sudo apt update
-        sudo apt install -y powershell
-        
-    - name: Run PowerShell commands correctly
+    - name: Setup PowerShell (FAST)
+      uses: actions/setup-powershell@v4
+      # Hanya butuh 10-15 detik!
+      
+    - name: Verify
       shell: pwsh
       run: |
-        Write-Host "PowerShell di GitHub Actions Ubuntu"
-        
-        # Method 1: Tampilkan sebagai table
-        $PSVersionTable
-        
-        # Method 2: Tampilkan property specific
-        Write-Host "PSVersion: $($PSVersionTable.PSVersion)"
-        Write-Host "PSEdition: $($PSVersionTable.PSEdition)"
-        Write-Host "OS: $($PSVersionTable.OS)"
-
+        Write-Host "✓ PowerShell ready in seconds!"
+        $PSVersionTable.PSVersion
     #- name: Run PowerShell OS Windows
       #shell: powershell
       #run: |
