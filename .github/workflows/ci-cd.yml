@@ -31,7 +31,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      uses: actions/setup-powershell@v4
 
     - name: Setup PHP 8.3
       uses: shivammathur/setup-php@v2
