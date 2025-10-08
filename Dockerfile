@@ -131,6 +131,6 @@ CMD [ "sh", "post_deploy.sh" ]
 #CMD ["/start.sh"]
 
 
-# Health check untuk container
+# Health check untuk container dengan OS Ubuntu
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD /usr/local/bin/health-check.sh
