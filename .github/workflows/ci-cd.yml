@@ -106,7 +106,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-     - name: Install PowerShell (Binary - Fast & Reliable)
+    - name: Install PowerShell (Binary - Fast & Reliable)
       run: |
         echo "🚀 Installing PowerShell via binary..."
         
