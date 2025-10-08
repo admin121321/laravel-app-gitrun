@@ -106,33 +106,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install PowerShell (Binary - Fast & Reliable)
-      run: |
-        echo "🚀 Installing PowerShell via binary..."
-        
-        # Download binary langsung dari GitHub releases
-        cd /tmp
-        wget -q https://github.com/PowerShell/PowerShell/releases/download/v7.4.2/powershell-7.4.2-linux-x64.tar.gz
-        
-        # Extract ke /opt/microsoft/powershell
-        sudo mkdir -p /opt/microsoft/powershell/7
-        sudo tar -xzf powershell-7.4.2-linux-x64.tar.gz -C /opt/microsoft/powershell/7
-        
-        # Buat symbolic link
-        sudo chmod +x /opt/microsoft/powershell/7/pwsh
-        sudo ln -sf /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh
-        
-        # Cleanup
-        rm powershell-7.4.2-linux-x64.tar.gz
-        cd $GITHUB_WORKSPACE
-        
-        echo "✅ PowerShell installed successfully!"
-
-    - name: Verify
-      shell: pwsh
-      run: |
-        Write-Host "✓ PowerShell ready in seconds!"
-        $PSVersionTable.PSVersion
     #- name: Run PowerShell OS Windows
       #shell: powershell
       #run: |
@@ -143,7 +116,6 @@ jobs:
 
     - name: Verify Environment
       #shell: powershell
-      shell: pwsh
       run: |
         Write-Host "=== Environment Verification ===" -ForegroundColor Green
         Write-Host "Docker Version:" -ForegroundColor Yellow
@@ -157,7 +129,6 @@ jobs:
 
     - name: Build Docker Image
       #shell: powershell
-      shell: pwsh
       run: |
         Write-Host "Building Docker image..." -ForegroundColor Cyan
         docker build -t ${{ env.APP_NAME }}:latest -t ${{ env.APP_NAME }}:${{ github.sha }} .
@@ -166,13 +137,11 @@ jobs:
 
     - name: Setup Kubernetes Namespace
       #shell: powershell
-      shell: pwsh
       run: |
          kubectl create namespace laravel-app --dry-run=client -o yaml | kubectl apply -f -
 
     - name: Deploy MySQL Database
       #shell: powershell
-      shell: pwsh
       run: |
         Write-Host "Deploying MySQL database..." -ForegroundColor Cyan
         
@@ -189,7 +158,6 @@ jobs:
 
     - name: Initialize Database
       #shell: powershell
-      shell: pwsh
       run: |
         Write-Host "🚀 Initializing database..." -ForegroundColor Cyan
         
@@ -223,7 +191,6 @@ jobs:
 
     - name: Deploy Laravel Application
       #shell: powershell
-      shell: pwsh
       run: |
         Write-Host "Deploying Laravel application..." -ForegroundColor Cyan
         
@@ -253,7 +220,6 @@ jobs:
 
     - name: Run Database Migrations
       #shell: powershell
-      shell: pwsh
       run: |
        Write-Host "Running database migrations..." -ForegroundColor Cyan
         
@@ -288,7 +254,6 @@ jobs:
 
     - name: Health Check
       #shell: powershell
-      shell: pwsh
       run: |
         Write-Host "Performing health check..." -ForegroundColor Cyan
         
@@ -316,7 +281,6 @@ jobs:
 
     - name: Deployment Summary
       #shell: powershell
-      shell: pwsh
       run: |
         $summary = @"
         # 🚀 Deployment Successful!
