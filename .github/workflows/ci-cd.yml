@@ -108,6 +108,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Setup PowerShell
+      uses: actions/setup-powershell@v3
+      with:
+        pwsh-version: '7.4.2'
+
+    - name: Run PowerShell commands
+      shell: pwsh
+      run: |
+        Write-Host "PowerShell version info:"
+        $PSVersionTable
+        Write-Host "Running kubectl commands..."
+        kubectl cluster-info
+
     - name: Run PowerShell
       #shell: powershell
       shell: pwsh
@@ -118,7 +131,7 @@ jobs:
        # $PSVersionTable
       run: |
         pwsh -Command "Write-Host 'PowerShell di GitHub Actions Ubuntu'"
-        pwsh -Command "\$PSVersionTable"
+        pwsh -Command "$PSVersionTable"
         # Script PowerShell Anda di sini tanpa Set-ExecutionPolicy
 
     - name: Verify Environment
