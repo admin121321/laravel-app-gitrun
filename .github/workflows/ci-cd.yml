@@ -106,6 +106,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Quick PowerShell Setup
+      run: |
+        # Method paling reliable dan cepat
+        if command -v pwsh &> /dev/null; then
+          echo "✓ PowerShell already installed"
+        else
+          echo "Installing PowerShell via binary..."
+          wget -q https://github.com/PowerShell/PowerShell/releases/download/v7.4.2/powershell-7.4.2-linux-x64.tar.gz
+          sudo tar -xzf powershell-7.4.2-linux-x64.tar.gz -C /opt
+          sudo ln -sf /opt/pwsh /usr/bin/pwsh
+        fi
+        
     #- name: Run PowerShell OS Windows
       #shell: powershell
       #run: |
@@ -116,6 +128,7 @@ jobs:
 
     - name: Verify Environment
       #shell: powershell
+      shell: pwsh
       run: |
         Write-Host "=== Environment Verification ===" -ForegroundColor Green
         Write-Host "Docker Version:" -ForegroundColor Yellow
@@ -129,6 +142,7 @@ jobs:
 
     - name: Build Docker Image
       #shell: powershell
+      shell: pwsh
       run: |
         Write-Host "Building Docker image..." -ForegroundColor Cyan
         docker build -t ${{ env.APP_NAME }}:latest -t ${{ env.APP_NAME }}:${{ github.sha }} .
@@ -137,11 +151,13 @@ jobs:
 
     - name: Setup Kubernetes Namespace
       #shell: powershell
+      shell: pwsh
       run: |
          kubectl create namespace laravel-app --dry-run=client -o yaml | kubectl apply -f -
 
     - name: Deploy MySQL Database
       #shell: powershell
+      shell: pwsh
       run: |
         Write-Host "Deploying MySQL database..." -ForegroundColor Cyan
         
@@ -158,6 +174,7 @@ jobs:
 
     - name: Initialize Database
       #shell: powershell
+      shell: pwsh
       run: |
         Write-Host "🚀 Initializing database..." -ForegroundColor Cyan
         
@@ -191,6 +208,7 @@ jobs:
 
     - name: Deploy Laravel Application
       #shell: powershell
+      shell: pwsh
       run: |
         Write-Host "Deploying Laravel application..." -ForegroundColor Cyan
         
@@ -220,6 +238,7 @@ jobs:
 
     - name: Run Database Migrations
       #shell: powershell
+      shell: pwsh
       run: |
        Write-Host "Running database migrations..." -ForegroundColor Cyan
         
@@ -254,6 +273,7 @@ jobs:
 
     - name: Health Check
       #shell: powershell
+      shell: pwsh
       run: |
         Write-Host "Performing health check..." -ForegroundColor Cyan
         
@@ -281,6 +301,7 @@ jobs:
 
     - name: Deployment Summary
       #shell: powershell
+      shell: pwsh
       run: |
         $summary = @"
         # 🚀 Deployment Successful!
