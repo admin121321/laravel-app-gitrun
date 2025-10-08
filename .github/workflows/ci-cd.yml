@@ -111,11 +111,15 @@ jobs:
     - name: Run PowerShell
       #shell: powershell
       shell: pwsh
+      #run: |
+       # Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+       # Get-ExecutionPolicy -List
+       # Write-Host "Ini PowerShell bawaan Windows"
+       # $PSVersionTable
       run: |
-        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-        Get-ExecutionPolicy -List
-        Write-Host "Ini PowerShell bawaan Windows"
-        $PSVersionTable
+        pwsh -Command "Write-Host 'PowerShell di GitHub Actions Ubuntu'"
+        pwsh -Command "\$PSVersionTable"
+        # Script PowerShell Anda di sini tanpa Set-ExecutionPolicy
 
     - name: Verify Environment
       #shell: powershell
