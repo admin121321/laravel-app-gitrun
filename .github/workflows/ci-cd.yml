@@ -106,9 +106,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup PowerShell (FAST)
-      uses: actions/setup-powershell@v4
-      # Hanya butuh 10-15 detik!
+    - name: Install PowerShell via Snap (Cepat)
+      run: |
+        sudo snap install powershell --classic
+        # Snap biasanya lebih cepat dari apt
       
     - name: Verify
       shell: pwsh
