@@ -126,19 +126,19 @@ jobs:
        # Write-Host "Ini PowerShell bawaan Windows"
        # $PSVersionTable
 
-    - name: Verify Environment
+    #- name: Verify Environment
       #shell: powershell
-      shell: pwsh
-      run: |
-        Write-Host "=== Environment Verification ===" -ForegroundColor Green
-        Write-Host "Docker Version:" -ForegroundColor Yellow
-        docker --version
-        Write-Host "Kubernetes Version:" -ForegroundColor Yellow
-        kubectl version --client
-        Write-Host "Kubernetes Nodes:" -ForegroundColor Yellow
-        kubectl get nodes
-        Write-Host "Current Context:" -ForegroundColor Yellow
-        kubectl config current-context
+     # shell: pwsh
+      #run: |
+       # Write-Host "=== Environment Verification ===" -ForegroundColor Green
+       # Write-Host "Docker Version:" -ForegroundColor Yellow
+       # docker --version
+       # Write-Host "Kubernetes Version:" -ForegroundColor Yellow
+       # kubectl version --client
+       # Write-Host "Kubernetes Nodes:" -ForegroundColor Yellow
+       # kubectl get nodes
+       # Write-Host "Current Context:" -ForegroundColor Yellow
+       # kubectl config current-context
 
     - name: Build Docker Image
       #shell: powershell
